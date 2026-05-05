@@ -82,6 +82,7 @@ export interface SellOrder {
 
 export type SellRequestStatus =
   | "Sell Initiated"
+  | "Auto Approved"
   | "Negotiation"
   | "Buyer Approved"
   | "Seller Approved"
@@ -100,7 +101,27 @@ export interface SellRequest {
   yield: number;
   settlementDate: string;
   utr?: string;
+  rfqNumber?: string;
+  tradeNumber?: string;
   status: SellRequestStatus;
+}
+
+export interface NegotiationRound {
+  round: number;
+  party: "You" | "Buyer";
+  date: string;
+  yield: number;
+  price: number;
+  remark: string;
+}
+
+export interface NegotiationDetail {
+  requestId: string;
+  fullBondName: string;
+  isin: string;
+  purchaseYield?: number;
+  settlementBank: string;
+  rounds: NegotiationRound[];
 }
 
 export interface Transaction {
@@ -114,6 +135,7 @@ export interface Transaction {
   date: string;
   utr?: string;
   bank?: string;
+  dematAccountId?: string;
   status: SellRequestStatus | "Settled";
 }
 

@@ -34,6 +34,7 @@ export default function DashboardPage() {
 
   // Panel state
   const [panelHolding, setPanelHolding] = useState<Holding | null>(null);
+  const [panelAccountId, setPanelAccountId] = useState("");
   const [bondOrders, setBondOrders] = useState<BondOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
@@ -55,7 +56,7 @@ export default function DashboardPage() {
         return false;
       });
       setAccounts(filtered);
-      setSelectedAccountId(filtered.find((a) => a.accountType === "Primary")?.id ?? filtered[0]?.id ?? "");
+      setSelectedAccountId("");
       setLoadingAccounts(false);
     });
 
@@ -77,21 +78,34 @@ export default function DashboardPage() {
       .finally(() => setLoadingHoldings(false));
   }, [selectedAccountId]);
 
-  const selectedAccount = useMemo(
-    () => accounts.find((a) => a.id === selectedAccountId),
-    [accounts, selectedAccountId]
-  );
+  type DisplayHolding = { holding: Holding; accountId: string; accountLabel: string };
+
+  const displayHoldings: DisplayHolding[] = useMemo(() => {
+    if (selectedAccountId) {
+      return holdings.map((h) => ({ holding: h, accountId: selectedAccountId, accountLabel: "" }));
+    }
+    return accounts.flatMap((a) =>
+      a.holdings.map((h) => ({
+        holding: h,
+        accountId: a.id,
+        accountLabel: `${a.dpName} ****${a.accountNumber.slice(-4)} (${a.accountType})`,
+      }))
+    );
+  }, [selectedAccountId, holdings, accounts]);
 
   const filteredHoldings = useMemo(() => {
-    if (!search) return holdings;
+    if (!search) return displayHoldings;
     const q = search.toLowerCase();
-    return holdings.filter((h) => h.bondName.toLowerCase().includes(q) || h.isin.toLowerCase().includes(q));
-  }, [search, holdings]);
+    return displayHoldings.filter(
+      ({ holding: h }) => h.bondName.toLowerCase().includes(q) || h.isin.toLowerCase().includes(q)
+    );
+  }, [search, displayHoldings]);
 
-  function handleViewOrders(holding: Holding) {
+  function handleViewOrders(holding: Holding, accountId: string) {
     setPanelHolding(holding);
+    setPanelAccountId(accountId);
     setLoadingOrders(true);
-    fetchBondOrders(holding.isin, selectedAccountId)
+    fetchBondOrders(holding.isin, accountId)
       .then(setBondOrders)
       .finally(() => setLoadingOrders(false));
   }
@@ -140,13 +154,12 @@ export default function DashboardPage() {
                 onChange={(e) => setSelectedAccountId(e.target.value)}
                 disabled={loadingAccounts}
               >
+                <option value="">All Demat Accounts</option>
                 {accounts.map((a) => {
                   const masked = a.accountNumber.slice(-4);
-                  const label =
-                    a.accountType?.toLowerCase() === "primary"
-                      ? "Primary account"
-                      : "Secondary account";
-
+                  const label = a.accountType?.toLowerCase() === "primary"
+                    ? "Primary account"
+                    : "Secondary account";
                   return (
                     <option key={a.id} value={a.id}>
                       {`${a.dpName} - ****${masked} (${label})`}
@@ -185,10 +198,13 @@ export default function DashboardPage() {
 
         {/* Bond Holdings Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredHoldings.map((holding) => (
-            <div key={holding.isin} className="card-elevated p-4 space-y-3">
+          {filteredHoldings.map(({ holding, accountId, accountLabel }) => (
+            <div key={`${holding.isin}-${accountId}`} className="card-elevated p-4 space-y-3">
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{holding.bondName}</p>
+                {accountLabel && (
+                  <p className="text-xs font-semibold text-muted-foreground">{accountLabel}</p>
+                )}
                 <p className="text-xs text-muted-foreground font-mono">{holding.isin}</p>
               </div>
 
@@ -220,7 +236,7 @@ export default function DashboardPage() {
 
               <button
                 className="w-full action-btn action-btn-primary"
-                onClick={() => handleViewOrders(holding)}
+                onClick={() => handleViewOrders(holding, accountId)}
               >
                 View Orders
               </button>
@@ -231,70 +247,67 @@ export default function DashboardPage() {
         {filteredHoldings.length === 0 && !loadingHoldings && (
           <div className="card-elevated p-8 text-center">
             <p className="text-sm text-muted-foreground">
-              {search ? "No bonds match your search" : "No holdings available in this Demat account"}
+              {search ? "No bonds match your search" : "No holdings available"}
             </p>
           </div>
         )}
-        {loadingHoldings && (
+        {loadingHoldings && selectedAccountId && (
           <div className="card-elevated p-8 text-center">
             <p className="text-sm text-muted-foreground">Loading holdings...</p>
           </div>
         )}
       </div>
 
-      {/* View Orders slide-over panel */}
-      {panelHolding && (
+      {/* View Orders modal — hidden while Sell modal is open */}
+      {panelHolding && !sellModalOrder && (
         <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/40 z-40"
-            onClick={closePanel}
-          />
-          
-          {/* Panel */}
-          <div className="fixed right-0 top-0 h-full w-full max-w-[420px] bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
-            {/* Panel header */}
-            <div className="p-4 border-b border-t border-border">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-sm leading-snug">{panelHolding.bondName}</h2>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">{panelHolding.isin}</p>
+          <div className="fixed inset-0 bg-black/50 z-[60]" onClick={closePanel} />
+
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden pointer-events-auto">
+
+              {/* Modal header */}
+              <div className="px-6 py-4 border-b border-border shrink-0">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-semibold text-base leading-snug">{panelHolding.bondName}</h2>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{panelHolding.isin}</p>
+                  </div>
+                  <button
+                    onClick={closePanel}
+                    className="text-muted-foreground hover:text-foreground text-2xl leading-none shrink-0"
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  onClick={closePanel}
-                  className="text-muted-foreground hover:text-foreground text-lg leading-none shrink-0"
-                  aria-label="Close"
-                >
-                  ×
-                </button>
+
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Total</p>
+                    <p className="font-bold text-sm mt-0.5">{panelHolding.total}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Available</p>
+                    <p className={`font-bold text-sm mt-0.5 ${panelHolding.available > 0 ? "text-success" : ""}`}>
+                      {panelHolding.available}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Blocked</p>
+                    <p className={`font-bold text-sm mt-0.5 ${panelHolding.blocked > 0 ? "text-warning" : ""}`}>
+                      {panelHolding.blocked}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Sold</p>
+                    <p className="font-bold text-sm mt-0.5">{panelHolding.sold}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 text-xs">
-                <div>
-                  <p className="text-muted-foreground">Total</p>
-                  <p className="font-bold text-sm mt-0.5">{panelHolding.total}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Available</p>
-                  <p className={`font-bold text-sm mt-0.5 ${panelHolding.available > 0 ? "text-success" : ""}`}>
-                    {panelHolding.available}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Blocked</p>
-                  <p className={`font-bold text-sm mt-0.5 ${panelHolding.blocked > 0 ? "text-warning" : ""}`}>
-                    {panelHolding.blocked}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Sold</p>
-                  <p className="font-bold text-sm mt-0.5">{panelHolding.sold}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Modal body */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <h3 className="font-semibold text-sm">Order Items</h3>
 
               {loadingOrders && (
@@ -364,6 +377,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+        </div>
         </>
       )}
 
@@ -371,8 +385,12 @@ export default function DashboardPage() {
         <SellModal
           order={sellModalOrder}
           holding={panelHolding}
-          onClose={() => setSellModalOrder(null)}
-          onConfirm={() => setSellModalOrder(null)}
+          role={layoutRole}
+          investorName={investorName || undefined}
+          investorPhone={investorPhone || undefined}
+          onBack={() => setSellModalOrder(null)}
+          onClose={() => { setSellModalOrder(null); closePanel(); }}
+          onSuccess={() => { setSellModalOrder(null); closePanel(); }}
         />
       )}
 

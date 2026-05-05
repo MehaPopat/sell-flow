@@ -1,4 +1,4 @@
-import type { BondOrder, DematAccount, IFA, IFAProfile, Investor, InvestorProfile, SellOrder, SellRequest, Transaction } from "@/types";
+import type { BondOrder, DematAccount, IFA, IFAProfile, Investor, InvestorProfile, NegotiationDetail, SellOrder, SellRequest, Transaction } from "@/types";
 
 export const DEMAT_ACCOUNTS: DematAccount[] = [
   {
@@ -232,29 +232,66 @@ export const SELL_REQUESTS: SellRequest[] = [
   { requestId: "SR-001", bondName: "Reliance Industries Ltd", orderId: "ORD-001", units: 20, yield: 9.25, settlementDate: "2026-03-23", status: "Negotiation" },
   { requestId: "SR-002", bondName: "HDFC Bank Ltd",           orderId: "ORD-002", units: 50, yield: 8.1,  settlementDate: "2026-03-24", status: "Sell Initiated" },
   { requestId: "SR-003", bondName: "ICICI Bank 8.40%",        orderId: "ORD-003", units: 15, yield: 8.6,  settlementDate: "2026-03-25", status: "Buyer Approved" },
-  { requestId: "SR-004", bondName: "Bajaj Finance 9.10%",     orderId: "ORD-004", units: 30, yield: 9.3,  settlementDate: "2026-03-15", utr: "UTR202603150001", status: "Settled" },
+  { requestId: "SR-004", bondName: "Bajaj Finance 9.10%",     orderId: "ORD-004", units: 30, yield: 9.3,  settlementDate: "2026-03-15", utr: "UTR202603150001", rfqNumber: "RFQ-2026-0412", tradeNumber: "TRD-2026-0412", status: "Settled" },
   { requestId: "SR-005", bondName: "Tata Capital 8.75%",      orderId: "ORD-005", units: 40, yield: 8.9,  settlementDate: "2026-03-16", status: "Rejected" },
   { requestId: "SR-006", bondName: "HDFC Bank Ltd",           orderId: "ORD-003", units: 20, yield: 8.2,  settlementDate: "2026-03-28", status: "Negotiation" },
-  { requestId: "SR-009", bondName: "Reliance Industries Ltd", orderId: "ORD-001", units: 15, yield: 9.0,  settlementDate: "2026-03-24", status: "InProgress" },
-  { requestId: "SR-010", bondName: "Tata Capital 8.75%",      orderId: "ORD-002", units: 10, yield: 8.8,  settlementDate: "2026-03-10", status: "Terminated" },
+  { requestId: "SR-007", bondName: "Power Finance Corp 8.65%", orderId: "ORD-005", units: 25, yield: 8.65, settlementDate: "2026-03-29", status: "Auto Approved" },
+  { requestId: "SR-009", bondName: "Reliance Industries Ltd",  orderId: "ORD-001", units: 15, yield: 9.0,  settlementDate: "2026-03-24", status: "InProgress" },
+  { requestId: "SR-010", bondName: "Tata Capital 8.75%",       orderId: "ORD-002", units: 10, yield: 8.8,  settlementDate: "2026-03-10", status: "Terminated" },
+  { requestId: "SR-011", bondName: "Bajaj Finance 9.10%",      orderId: "ORD-006", units: 10, yield: 9.5,  settlementDate: "2026-05-10", status: "Negotiation" },
+];
+
+export const NEGOTIATION_DETAILS: NegotiationDetail[] = [
+  {
+    requestId: "SR-001",
+    fullBondName: "Reliance Industries Ltd 8.95% 2027",
+    isin: "INE002A07RY8",
+    purchaseYield: 8.75,
+    settlementBank: "HDFC Bank · XXXX XXXX 4521",
+    rounds: [
+      { round: 1, party: "You",   date: "10/03/2026, 10:30:00", yield: 9.25, price: 1015, remark: "Initiating sell at desired yield." },
+      { round: 2, party: "Buyer", date: "11/03/2026, 09:00:00", yield: 9.5,  price: 1008, remark: "Counter with higher yield based on current market rates." },
+    ],
+  },
+  {
+    requestId: "SR-006",
+    fullBondName: "HDFC Bank Ltd 7.95% 2028",
+    isin: "INE040A08120",
+    purchaseYield: 7.5,
+    settlementBank: "HDFC Bank · XXXX XXXX 4521",
+    rounds: [
+      { round: 1, party: "You", date: "12/03/2026, 11:00:00", yield: 8.2, price: 982, remark: "Initiating sell at desired yield." },
+    ],
+  },
+  {
+    requestId: "SR-011",
+    fullBondName: "Bajaj Finance Ltd 9.10% 2029",
+    isin: "INE152A08101",
+    settlementBank: "ICICI Bank · XXXX XXXX 7890",
+    rounds: [
+      { round: 1, party: "You",   date: "01/05/2026, 10:00:00", yield: 9.5,  price: 1048, remark: "Initiating sell at desired yield." },
+      { round: 2, party: "Buyer", date: "02/05/2026, 14:30:00", yield: 9.75, price: 1042, remark: "Countering with a slightly higher yield." },
+    ],
+  },
 ];
 
 const DEFAULT_BANK = "HDFC Bank  XXXX XXXX 4521";
 
 export const TRANSACTIONS: Transaction[] = [
   // Sell transactions
-  { id: "SR-006", type: "Sell", bondName: "HDFC Bank Ltd",           isin: "INE040A08120", units: 20, price: 1000, yield: 8.2,  date: "2026-03-28", utr: undefined,            bank: DEFAULT_BANK, status: "Negotiation" },
-  { id: "SR-003", type: "Sell", bondName: "ICICI Bank 8.40%",        isin: "INE090A08UJ3", units: 15, price: 1000, yield: 8.6,  date: "2026-03-25", utr: undefined,            bank: DEFAULT_BANK, status: "Buyer Approved" },
-  { id: "SR-002", type: "Sell", bondName: "HDFC Bank Ltd",           isin: "INE040A08120", units: 50, price: 1000, yield: 8.1,  date: "2026-03-24", utr: undefined,            bank: DEFAULT_BANK, status: "Sell Initiated" },
-  { id: "SR-009", type: "Sell", bondName: "Reliance Industries Ltd", isin: "INE002A07RY8", units: 15, price: 1000, yield: 9.0,  date: "2026-03-24", utr: undefined,            bank: DEFAULT_BANK, status: "InProgress" },
-  { id: "SR-001", type: "Sell", bondName: "Reliance Industries Ltd", isin: "INE002A07RY8", units: 20, price: 1000, yield: 9.25, date: "2026-03-23", utr: undefined,            bank: DEFAULT_BANK, status: "Negotiation" },
-  { id: "SR-005", type: "Sell", bondName: "Tata Capital 8.75%",      isin: "INE261F08181", units: 40, price: 1000, yield: 8.9,  date: "2026-03-16", utr: undefined,            bank: DEFAULT_BANK, status: "Rejected" },
-  { id: "SR-004", type: "Sell", bondName: "Bajaj Finance 9.10%",     isin: "INE152A08101", units: 30, price: 1000, yield: 9.3,  date: "2026-03-15", utr: "UTR202603150001",    bank: DEFAULT_BANK, status: "Settled" },
-  { id: "SR-010", type: "Sell", bondName: "Tata Capital 8.75%",      isin: "INE261F08181", units: 10, price: 1000, yield: 8.8,  date: "2026-03-10", utr: undefined,            bank: DEFAULT_BANK, status: "Terminated" },
+  { id: "SR-006", type: "Sell", bondName: "HDFC Bank Ltd",            isin: "INE040A08120", units: 20, price: 1000, yield: 8.2,  date: "2026-03-28", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Negotiation" },
+  { id: "SR-003", type: "Sell", bondName: "ICICI Bank 8.40%",         isin: "INE090A08UJ3", units: 15, price: 1000, yield: 8.6,  date: "2026-03-25", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Buyer Approved" },
+  { id: "SR-002", type: "Sell", bondName: "HDFC Bank Ltd",            isin: "INE040A08120", units: 50, price: 1000, yield: 8.1,  date: "2026-03-24", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Sell Initiated" },
+  { id: "SR-007", type: "Sell", bondName: "Power Finance Corp 8.65%", isin: "INE134E08KT0", units: 25, price: 1000, yield: 8.65, date: "2026-03-29", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc3", status: "Auto Approved" },
+  { id: "SR-009", type: "Sell", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 15, price: 1000, yield: 9.0,  date: "2026-03-24", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "InProgress" },
+  { id: "SR-001", type: "Sell", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 20, price: 1000, yield: 9.25, date: "2026-03-23", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Negotiation" },
+  { id: "SR-005", type: "Sell", bondName: "Tata Capital 8.75%",       isin: "INE261F08181", units: 40, price: 1000, yield: 8.9,  date: "2026-03-16", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Rejected" },
+  { id: "SR-004", type: "Sell", bondName: "Bajaj Finance 9.10%",      isin: "INE152A08101", units: 30, price: 1000, yield: 9.3,  date: "2026-03-15", utr: "UTR202603150001", bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Settled" },
+  { id: "SR-010", type: "Sell", bondName: "Tata Capital 8.75%",       isin: "INE261F08181", units: 10, price: 1000, yield: 8.8,  date: "2026-03-10", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Terminated" },
   // Buy transactions
-  { id: "ORD-004", type: "Buy", bondName: "ICICI Bank 8.40%",        isin: "INE090A08UJ3", units: 30,  price: 1010, date: "2025-01-05", status: "Settled" },
-  { id: "ORD-005", type: "Buy", bondName: "Bajaj Finance 9.10%",     isin: "INE152A08101", units: 75,  price: 1005, date: "2024-11-18", status: "Settled" },
-  { id: "ORD-002", type: "Buy", bondName: "Reliance Industries Ltd", isin: "INE002A07RY8", units: 30,  price: 1015, date: "2024-06-20", status: "Settled" },
-  { id: "ORD-001", type: "Buy", bondName: "Reliance Industries Ltd", isin: "INE002A07RY8", units: 50,  price: 1020, date: "2024-03-15", status: "Settled" },
-  { id: "ORD-003", type: "Buy", bondName: "HDFC Bank Ltd",           isin: "INE040A08120", units: 100, price: 995,  date: "2024-01-10", status: "Settled" },
+  { id: "ORD-004", type: "Buy", bondName: "ICICI Bank 8.40%",         isin: "INE090A08UJ3", units: 30,  price: 1010, date: "2025-01-05", dematAccountId: "acc2", status: "Settled" },
+  { id: "ORD-005", type: "Buy", bondName: "Bajaj Finance 9.10%",      isin: "INE152A08101", units: 75,  price: 1005, date: "2024-11-18", dematAccountId: "acc2", status: "Settled" },
+  { id: "ORD-002", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 30,  price: 1015, date: "2024-06-20", dematAccountId: "acc1", status: "Settled" },
+  { id: "ORD-001", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 50,  price: 1020, date: "2024-03-15", dematAccountId: "acc1", status: "Settled" },
+  { id: "ORD-003", type: "Buy", bondName: "HDFC Bank Ltd",            isin: "INE040A08120", units: 100, price: 995,  date: "2024-01-10", dematAccountId: "acc1", status: "Settled" },
 ];

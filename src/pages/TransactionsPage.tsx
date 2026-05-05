@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTransactions } from "@/services/api";
+import { DEMAT_ACCOUNTS } from "@/data/mockData";
 import type { Transaction } from "@/types";
 import { PortalLayout } from "@/components/PortalLayout";
+
+const dematMap = Object.fromEntries(DEMAT_ACCOUNTS.map((a) => [a.id, a]));
 
 type FilterTab = "All" | "Buy" | "Sell";
 
@@ -97,7 +100,7 @@ export default function TransactionsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
-                    {["ID", "Type", "Bond", "ISIN", "Units", "Price", "Yield", "Date", "UTR", "Bank", "Status"].map((h) => (
+                    {["ID", "Type", "Bond", "ISIN", "Units", "Price", "Yield", "Date", "UTR", "Bank", "Demat Account", "Status"].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         {h}
                       </th>
@@ -125,6 +128,11 @@ export default function TransactionsPage() {
                       <td className="px-4 py-3 whitespace-nowrap">{txn.date}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{txn.utr ?? "—"}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{txn.bank ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {txn.dematAccountId && dematMap[txn.dematAccountId]
+                          ? `${dematMap[txn.dematAccountId].dpName} · XXXX XXXX ${dematMap[txn.dematAccountId].accountNumber.slice(-4)}`
+                          : "—"}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${statusStyle(txn.status)}`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70 shrink-0" />

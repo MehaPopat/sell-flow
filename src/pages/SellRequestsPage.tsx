@@ -2,25 +2,42 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchSellRequests } from "@/services/api";
 import type { SellRequest, SellRequestStatus } from "@/types";
 import { PortalLayout } from "@/components/PortalLayout";
+import { NegotiateModal } from "@/components/NegotiateModal";
+import { SellActionModal } from "@/components/SellActionModal";
+import type { SellActionType } from "@/components/SellActionModal";
+import { SuccessModal } from "@/components/SuccessModal";
 
-const FLOW_STEPS: { label: string; color: string }[] = [
-  { label: "1. Sell Initiated",  color: "bg-blue-100 text-blue-700" },
-  { label: "2. Negotiation",     color: "bg-amber-100 text-amber-700" },
-  { label: "3. Buyer Approved",  color: "bg-green-100 text-green-700" },
-  { label: "4. Seller Approved", color: "bg-teal-100 text-teal-700" },
-  { label: "5. Payment Done",    color: "bg-cyan-100 text-cyan-700" },
-  { label: "6. Processing",      color: "bg-orange-100 text-orange-700" },
-  { label: "7. Settled",         color: "bg-emerald-100 text-emerald-700" },
+const FLOW_STEPS: { label: string; color: string }[][] = [
+  // Flow 0 — Auto Approved Flow
+  [
+    { label: "1. Sell Initiated",  color: "bg-blue-100 text-blue-700" },
+    { label: "2. Auto Approved",  color: "bg-green-100 text-green-700" },
+    { label: "3. Payment Done",   color: "bg-cyan-100 text-cyan-700" },
+    { label: "4. Processing",     color: "bg-orange-100 text-orange-700" },
+    { label: "5. Settled",        color: "bg-emerald-100 text-emerald-700" },
+  ],
+
+  // Flow 1 — Negotiation Flow
+  [
+    { label: "1. Sell Initiated",  color: "bg-blue-100 text-blue-700" },
+    { label: "2. Negotiation",     color: "bg-amber-100 text-amber-700" },
+    { label: "3. Buyer Approved",  color: "bg-green-100 text-green-700" },
+    { label: "4. Seller Approved", color: "bg-teal-100 text-teal-700" },
+    { label: "5. Payment Done",    color: "bg-cyan-100 text-cyan-700" },
+    { label: "6. Processing",      color: "bg-orange-100 text-orange-700" },
+    { label: "7. Settled",         color: "bg-emerald-100 text-emerald-700" },
+  ]
 ];
 
 const FILTER_TABS: Array<SellRequestStatus | "All"> = [
-  "All", "Sell Initiated", "Negotiation", "Buyer Approved", "Seller Approved",
+  "All", "Sell Initiated", "Auto Approved", "Negotiation", "Buyer Approved", "Seller Approved",
   "Rejected", "Payment Done", "Processing", "Settled", "Terminated",
 ];
 
 function statusStyle(status: SellRequestStatus): string {
   switch (status) {
     case "Sell Initiated":  return "bg-blue-100 text-blue-700";
+    case "Auto Approved":   return "bg-green-100 text-green-700";
     case "Negotiation":     return "bg-amber-100 text-amber-700";
     case "Buyer Approved":  return "bg-green-100 text-green-700";
     case "Seller Approved": return "bg-teal-100 text-teal-700";
@@ -41,40 +58,57 @@ const btn = {
   muted:    "rounded-full px-3 py-1.5 text-xs font-semibold bg-muted text-muted-foreground cursor-default select-none",
 };
 
-function StatusActions({ status }: { status: SellRequestStatus }) {
+interface StatusActionsProps {
+  status: SellRequestStatus;
+  onNegotiate?: () => void;
+  onCancel?: () => void;
+  onReject?: () => void;
+  onApprove?: () => void;
+  onView?: () => void;
+  onDIS?: () => void;
+}
+
+function StatusActions({ status, onNegotiate, onCancel, onReject, onApprove, onView, onDIS }: StatusActionsProps) {
   switch (status) {
     case "Sell Initiated":
       return (
         <div className="flex items-center gap-2">
-          <button className={btn.danger}>× Cancel</button>
+          <button className={btn.danger} onClick={onCancel}>× Cancel</button>
         </div>
       );
     case "Negotiation":
       return (
         <div className="flex items-center gap-2">
-          <button className={btn.primary}>Negotiate</button>
-          <button className={btn.danger}>× Reject</button>
+          <button className={btn.primary} onClick={onNegotiate}>Negotiate</button>
+          <button className={btn.danger} onClick={onReject}>× Reject</button>
         </div>
       );
     case "Buyer Approved":
       return (
         <div className="flex items-center gap-2">
-          <button className={btn.success}>✓ Approve</button>
-          <button className={btn.danger}>× Reject</button>
+          <button className={btn.success} onClick={onApprove}>✓ Approve</button>
+          <button className={btn.danger} onClick={onReject}>× Reject</button>
         </div>
       );
     case "Settled":
       return (
         <div className="flex items-center gap-2">
-          <button className={btn.ghost}>View</button>
-          <button className={btn.ghost}>📎 DIS</button>
+          <button className={btn.ghost} onClick={onView}>View</button>
+          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
+        </div>
+      );
+    case "Auto Approved":
+      return (
+        <div className="flex items-center gap-2">
+          <button className={btn.ghost} onClick={onView}>View</button>
+          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
         </div>
       );
     case "InProgress":
       return (
         <div className="flex items-center gap-2">
           <span className={btn.muted}>⏱ In Progress</span>
-          <button className={btn.ghost}>📎 DIS</button>
+          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
         </div>
       );
     default:
@@ -86,6 +120,14 @@ export default function SellRequestsPage() {
   const [requests, setRequests] = useState<SellRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<SellRequestStatus | "All">("All");
+  const [negotiateRequest, setNegotiateRequest] = useState<SellRequest | null>(null);
+  const [negotiateSuccess, setNegotiateSuccess] = useState<"counter" | "accept" | "reject" | null>(null);
+  const [actionModal, setActionModal] = useState<{ request: SellRequest; type: SellActionType } | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<SellActionType | null>(null);
+
+  function openAction(req: SellRequest, type: SellActionType) {
+    setActionModal({ request: req, type });
+  }
 
   useEffect(() => {
     fetchSellRequests()
@@ -112,13 +154,27 @@ export default function SellRequestsPage() {
         {/* Flow pipeline */}
         <div className="card-elevated p-4 space-y-3">
           <p className="text-sm font-semibold">Sell Request Flow</p>
-          <div className="flex flex-wrap items-center gap-1">
-            {FLOW_STEPS.map((step, i) => (
+          <p className="text-xs font-semibold">Auto Approved Flow</p>
+          <div className="flex flex-wrap items-center gap-1 tex-muted-foreground">
+            {FLOW_STEPS[0].map((step, i) => (
               <div key={step.label} className="flex items-center gap-1">
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>
                   {step.label}
                 </span>
-                {i < FLOW_STEPS.length - 1 && (
+                {i < FLOW_STEPS[0].length - 1 && (
+                  <span className="text-muted-foreground text-xs">→</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs font-semibold">Negotiation Flow</p>
+          <div className="flex flex-wrap items-center gap-1 tex-muted-foreground">
+            {FLOW_STEPS[1].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-1">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>
+                  {step.label}
+                </span>
+                {i < FLOW_STEPS[1].length - 1 && (
                   <span className="text-muted-foreground text-xs">→</span>
                 )}
               </div>
@@ -194,7 +250,15 @@ export default function SellRequestsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <StatusActions status={req.status} />
+                        <StatusActions
+                          status={req.status}
+                          onNegotiate={() => setNegotiateRequest(req)}
+                          onCancel={() => openAction(req, "cancel")}
+                          onReject={() => openAction(req, "reject")}
+                          onApprove={() => openAction(req, "approve")}
+                          onView={() => openAction(req, "view")}
+                          onDIS={() => openAction(req, "dis")}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -204,6 +268,63 @@ export default function SellRequestsPage() {
           )}
         </div>
       </div>
+
+      {negotiateRequest && (
+        <NegotiateModal
+          request={negotiateRequest}
+          onClose={() => setNegotiateRequest(null)}
+          onSuccess={(action) => {
+            setNegotiateRequest(null);
+            setNegotiateSuccess(action);
+          }}
+        />
+      )}
+
+      {negotiateSuccess && (
+        <SuccessModal
+          title={
+            negotiateSuccess === "counter" ? "Counter Quote Submitted" :
+            negotiateSuccess === "accept"  ? "Quote Accepted" :
+                                             "Quote Rejected"
+          }
+          body={
+            negotiateSuccess === "counter" ? "Your counter quote has been sent to the buyer. You'll be notified when they respond." :
+            negotiateSuccess === "accept"  ? "You have successfully accepted the buyer's quote. The trade will proceed to settlement." :
+                                             "The buyer's quote has been rejected. The negotiation is now closed."
+          }
+          onClose={() => setNegotiateSuccess(null)}
+        />
+      )}
+
+      {actionModal && (
+        <SellActionModal
+          request={actionModal.request}
+          type={actionModal.type}
+          onClose={() => setActionModal(null)}
+          onSuccess={(t) => {
+            setActionModal(null);
+            setActionSuccess(t);
+          }}
+        />
+      )}
+
+      {actionSuccess && (
+        <SuccessModal
+          title={
+            actionSuccess === "reject"  ? "Proposal Rejected" :
+            actionSuccess === "cancel"  ? "Request Cancelled" :
+            actionSuccess === "approve" ? "Proposal Approved" :
+                                          "DIS Uploaded"
+          }
+          body={
+            actionSuccess === "reject"  ? "The proposal has been rejected successfully." :
+            actionSuccess === "cancel"  ? "Your sell request has been cancelled." :
+            actionSuccess === "approve" ? "The proposal has been approved successfully." :
+                                          "Your DIS copy has been uploaded successfully."
+          }
+          onClose={() => setActionSuccess(null)}
+        />
+      )}
     </PortalLayout>
   );
 }

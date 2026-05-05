@@ -68,19 +68,9 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
       next.units = "Units must be between 1 and 1000.";
     if (desiredYield === "" || yieldNum < 0 || yieldNum > 100)
       next.desiredYield = "Desired Yield must be between 0 and 100.";
+    if (!confirmed) next.confirmed = "Please confirm the details before submitting.";
     return next;
   }
-
-  const canSubmit =
-    selectedIsin !== "" &&
-    (!isOther || (isinName.trim() !== "" && isinValue.trim() !== "")) &&
-    units !== "" &&
-    unitsNum >= 1 &&
-    unitsNum <= 1000 &&
-    desiredYield !== "" &&
-    yieldNum >= 0 &&
-    yieldNum <= 100 &&
-    confirmed;
 
   async function submitEmail() {
     await sendOpsEmail({
@@ -247,19 +237,25 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
                 </div>
 
                 {/* Confirm checkbox */}
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={confirmed}
-                    onChange={(e) => setConfirmed(e.target.checked)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    I confirm that the above details are correct. I understand that sell orders are
-                    subject to market conditions and negotiation with buyers. I agree to the Terms of
-                    Service and understand the T-day termination policy.
-                  </span>
-                </label>
+                <div className="space-y-1">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(e) => {
+                        setConfirmed(e.target.checked);
+                        if (e.target.checked) setErrors((prev) => ({ ...prev, confirmed: "" }));
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span className="text-xs text-muted-foreground leading-relaxed">
+                      I confirm that the above details are correct. I understand that sell orders are
+                      subject to market conditions and negotiation with buyers. I agree to the Terms of
+                      Service and understand the T+2 day termination policy.
+                    </span>
+                  </label>
+                  {errors.confirmed && <p className="text-xs text-destructive">{errors.confirmed}</p>}
+                </div>
 
                 {/* Actions */}
                 <div className="flex gap-3">
@@ -273,7 +269,7 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
                   <button
                     type="button"
                     className="action-btn action-btn-primary flex-1 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
-                    disabled={!canSubmit || submitting}
+                    disabled={submitting}
                     onClick={handleFormSubmit}
                   >
                     {submitting ? "Submitting…" : "Create Quote"}
