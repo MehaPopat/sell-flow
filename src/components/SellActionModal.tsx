@@ -1,13 +1,28 @@
 import { useState } from "react";
 import type { SellRequest, SellRequestStatus } from "@/types";
 
-export type SellActionType = "reject" | "cancel" | "view" | "dis" | "approve";
+export type SellActionType =
+  | "reject"
+  | "cancel"
+  | "view"
+  | "dis"
+  | "approve"
+  | "terminate"
+  // OPS actions
+  | "match"
+  | "to-negotiation"
+  | "confirm-payment"
+  | "to-processing"
+  | "to-settled";
 
 interface SellActionModalProps {
   request: SellRequest;
   type: SellActionType;
   onClose: () => void;
   onSuccess?: (type: SellActionType) => void;
+  dematDisplay?: { name: string; account: string };
+  bankDisplay?: { name: string; account: string };
+  purchasePrice?: number;
 }
 
 function statusBadgeClass(status: SellRequestStatus): string {
@@ -26,17 +41,26 @@ function statusBadgeClass(status: SellRequestStatus): string {
   }
 }
 
-export function SellActionModal({ request, type, onClose, onSuccess }: SellActionModalProps) {
+export function SellActionModal({ request, type, onClose, onSuccess, dematDisplay, bankDisplay, purchasePrice }: SellActionModalProps) {
   const [remark, setRemark] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [utr, setUtr] = useState("");
+  const [tradeNumber, setTradeNumber] = useState("");
+  const [rfqNumber, setRfqNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const title =
-    type === "reject"  ? "Reject Proposal" :
-    type === "cancel"  ? "Cancel Sell Request" :
-    type === "view"    ? "Transaction Details" :
-    type === "approve" ? "Approve Proposal" :
-                         "Upload DIS Copy";
+    type === "reject"           ? "Reject Proposal" :
+    type === "cancel"           ? "Cancel Sell Request" :
+    type === "view"             ? "Transaction Details" :
+    type === "approve"          ? "Approve Proposal" :
+    type === "terminate"        ? "Terminate Request" :
+    type === "match"            ? "Auto-Approve (Match Found)" :
+    type === "to-negotiation"   ? "Send to Negotiation" :
+    type === "confirm-payment"  ? "Confirm Payment Received" :
+    type === "to-processing"    ? "Mark as Processing" :
+    type === "to-settled"       ? "Mark as Settled" :
+                                  "Upload DIS Copy";
 
   async function handleConfirm() {
     setSubmitting(true);
@@ -45,9 +69,54 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
     onSuccess?.(type);
   }
 
+  const extraCard = (dematDisplay || bankDisplay || purchasePrice != null) ? (
+    <div className="bg-muted rounded-xl p-4 space-y-2">
+      {purchasePrice != null && (
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Purchase Price</span>
+          <span className="font-semibold">₹{purchasePrice.toLocaleString("en-IN")}</span>
+        </div>
+      )}
+      {dematDisplay && (
+        <>
+          <div className="border-t border-border/60 pt-2 mt-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Demat Account</p>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">DP Name</span>
+            <span className="font-medium">{dematDisplay.name}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Account No.</span>
+            <span className="font-medium">{dematDisplay.account}</span>
+          </div>
+        </>
+      )}
+      {bankDisplay && (
+        <>
+          <div className="border-t border-border/60 pt-2 mt-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Bank Details</p>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Bank Name</span>
+            <span className="font-medium">{bankDisplay.name}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Account No.</span>
+            <span className="font-medium">{bankDisplay.account}</span>
+          </div>
+        </>
+      )}
+    </div>
+  ) : null;
+
   const detailsCard = (
     <div className="bg-muted rounded-xl p-4 space-y-2">
       <p className="text-sm font-semibold">{request.bondName}</p>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Request ID:</span>
+        <span className="font-medium">{request.requestId}</span>
+      </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Units:</span>
         <span className="font-medium">{request.units}</span>
@@ -98,6 +167,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
             {type === "reject" && (
               <>
                 {detailsCard}
+                {extraCard}
                 <p className="text-sm text-muted-foreground">
                   Please provide a reason for rejecting this proposal.
                 </p>
@@ -112,9 +182,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">
-                    Cancel
-                  </button>
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
                   <button
                     onClick={handleConfirm}
                     disabled={submitting}
@@ -130,6 +198,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
             {type === "approve" && (
               <>
                 {detailsCard}
+                {extraCard}
                 <p className="text-sm text-muted-foreground">
                   Please confirm your approval for this proposal.
                 </p>
@@ -144,9 +213,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">
-                    Cancel
-                  </button>
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
                   <button
                     onClick={handleConfirm}
                     disabled={submitting}
@@ -176,9 +243,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">
-                    Cancel
-                  </button>
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
                   <button
                     onClick={handleConfirm}
                     disabled={submitting}
@@ -190,10 +255,197 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
               </>
             )}
 
+            {/* ── TERMINATE ── */}
+            {type === "terminate" && (
+              <>
+                {detailsCard}
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-red-700">Warning: This action is irreversible</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Terminating this request will close it permanently as per the T+1 day termination policy.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Reason for Termination</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Provide a reason for termination..."
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm resize-none"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                    className="action-btn flex-1 py-3 text-sm rounded-xl font-semibold bg-red-700 text-white hover:bg-red-800 transition disabled:opacity-40"
+                  >
+                    {submitting ? "Terminating…" : "Terminate Request"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── MATCH (OPS: Auto-Approve) ── */}
+            {type === "match" && (
+              <>
+                {detailsCard}
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-green-700">A buyer match has been found</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Auto-approving this request will notify the seller and trigger DIS collection.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                    className="action-btn flex-1 py-3 text-sm rounded-xl font-semibold bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-40"
+                  >
+                    {submitting ? "Processing…" : "Auto-Approve"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── TO-NEGOTIATION (OPS) ── */}
+            {type === "to-negotiation" && (
+              <>
+                {detailsCard}
+                <p className="text-sm text-muted-foreground">
+                  Move this request to the negotiation phase. The buyer team will send a counter-quote to the seller.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Internal Note (Optional)</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Add an internal note..."
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm resize-none"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                    className="action-btn action-btn-primary flex-1 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {submitting ? "Sending…" : "Send to Negotiation"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── CONFIRM PAYMENT (OPS) ── */}
+            {type === "confirm-payment" && (
+              <>
+                {detailsCard}
+                <p className="text-sm text-muted-foreground">
+                  Confirm that payment has been received from the buyer for this sell request.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">UTR Number <span className="text-destructive">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Enter UTR number"
+                    value={utr}
+                    onChange={(e) => setUtr(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Remarks (Optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Add any remarks..."
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm resize-none"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={!utr.trim() || submitting}
+                    className="action-btn flex-1 py-3 text-sm rounded-xl font-semibold bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Confirming…" : "Confirm Payment"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── TO-PROCESSING (OPS) ── */}
+            {type === "to-processing" && (
+              <>
+                {detailsCard}
+                <p className="text-sm text-muted-foreground">
+                  Mark this request as Processing. This will initiate the securities transfer (T+1/T+2 settlement cycle).
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                    className="action-btn action-btn-primary flex-1 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {submitting ? "Processing…" : "Mark Processing"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── TO-SETTLED (OPS) ── */}
+            {type === "to-settled" && (
+              <>
+                {detailsCard}
+                <p className="text-sm text-muted-foreground">
+                  Mark this request as Settled. Provide the trade references for record-keeping.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">RFQ Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. RFQ-2026-0001"
+                    value={rfqNumber}
+                    onChange={(e) => setRfqNumber(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Trade Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. TRD-2026-0001"
+                    value={tradeNumber}
+                    onChange={(e) => setTradeNumber(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                    className="action-btn flex-1 py-3 text-sm rounded-xl font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-40"
+                  >
+                    {submitting ? "Settling…" : "Mark as Settled"}
+                  </button>
+                </div>
+              </>
+            )}
+
             {/* ── VIEW (Transaction Details) ── */}
             {type === "view" && (
               <>
                 {detailsCard}
+                {extraCard}
                 <p className="text-sm text-muted-foreground">View the complete transaction details.</p>
 
                 {request.utr && (
@@ -227,21 +479,6 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
                       <span className="font-medium">{request.tradeNumber}</span>
                     </div>
                   )}
-                </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Settlement Bank:</span>
-                    <span className="font-semibold text-right">HDFC Bank</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground"></span>
-                    <span className="font-medium text-muted-foreground">XXXX XXXX 4521</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground"></span>
-                    <span className="font-medium text-muted-foreground">HDFC0001234</span>
-                  </div>
                 </div>
 
                 <button onClick={onClose} className="action-btn action-btn-secondary w-full py-3 text-sm">
@@ -279,9 +516,7 @@ export function SellActionModal({ request, type, onClose, onSuccess }: SellActio
                 </label>
 
                 <div className="flex gap-3">
-                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">
-                    Cancel
-                  </button>
+                  <button onClick={onClose} className="action-btn action-btn-secondary flex-1 py-3 text-sm">Cancel</button>
                   <button
                     onClick={handleConfirm}
                     disabled={!file || submitting}

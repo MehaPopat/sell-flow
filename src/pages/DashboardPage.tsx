@@ -82,7 +82,11 @@ export default function DashboardPage() {
 
   const displayHoldings: DisplayHolding[] = useMemo(() => {
     if (selectedAccountId) {
-      return holdings.map((h) => ({ holding: h, accountId: selectedAccountId, accountLabel: "" }));
+      const account = accounts.find((a) => a.id === selectedAccountId);
+      const label = account
+        ? `${account.dpName} ****${account.accountNumber.slice(-4)} (${account.accountType})`
+        : "";
+      return holdings.map((h) => ({ holding: h, accountId: selectedAccountId, accountLabel: label }));
     }
     return accounts.flatMap((a) =>
       a.holdings.map((h) => ({
@@ -196,66 +200,59 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Bond Holdings Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredHoldings.map(({ holding, accountId, accountLabel }) => (
-            <div key={`${holding.isin}-${accountId}`} className="card-elevated p-4 space-y-3">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">{holding.bondName}</p>
-                {accountLabel && (
-                  <p className="text-xs font-semibold text-muted-foreground">{accountLabel}</p>
-                )}
-                <p className="text-xs text-muted-foreground font-mono">{holding.isin}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Holding</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                  <div>
-                    <p className="text-muted-foreground">Total</p>
-                    <p className="font-bold">{holding.total}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Available</p>
-                    <p className={`font-bold ${holding.available > 0 ? "text-success" : ""}`}>
-                      {holding.available}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Blocked</p>
-                    <p className={`font-bold ${holding.blocked > 0 ? "text-warning" : ""}`}>
-                      {holding.blocked}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Sold</p>
-                    <p className="font-bold">{holding.sold}</p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                className="w-full action-btn action-btn-primary"
-                onClick={() => handleViewOrders(holding, accountId)}
-              >
-                View Orders
-              </button>
+        {/* Bond Holdings List */}
+        <div className="card-elevated overflow-hidden">
+          {loadingHoldings && selectedAccountId ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-muted-foreground">Loading holdings...</p>
             </div>
-          ))}
+          ) : filteredHoldings.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                {search ? "No bonds match your search" : "No holdings available"}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    {["Bond", "ISIN", "Demat Account", "Total", "Available", "Blocked", "Sold", ""].map((h) => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHoldings.map(({ holding, accountId, accountLabel }) => (
+                    <tr key={`${holding.isin}-${accountId}`} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 font-medium whitespace-nowrap">{holding.bondName}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{holding.isin}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{accountLabel}</td>
+                      <td className="px-4 py-3 font-medium">{holding.total}</td>
+                      <td className={`px-4 py-3 font-medium ${holding.available > 0 ? "text-success" : ""}`}>
+                        {holding.available}
+                      </td>
+                      <td className={`px-4 py-3 font-medium ${holding.blocked > 0 ? "text-warning" : ""}`}>
+                        {holding.blocked}
+                      </td>
+                      <td className="px-4 py-3 font-medium">{holding.sold}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          className="action-btn action-btn-primary text-xs"
+                          onClick={() => handleViewOrders(holding, accountId)}
+                        >
+                          View Orders
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-
-        {filteredHoldings.length === 0 && !loadingHoldings && (
-          <div className="card-elevated p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              {search ? "No bonds match your search" : "No holdings available"}
-            </p>
-          </div>
-        )}
-        {loadingHoldings && selectedAccountId && (
-          <div className="card-elevated p-8 text-center">
-            <p className="text-sm text-muted-foreground">Loading holdings...</p>
-          </div>
-        )}
       </div>
 
       {/* View Orders modal — hidden while Sell modal is open */}

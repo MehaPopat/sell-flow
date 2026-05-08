@@ -151,6 +151,20 @@ export interface BondOrder {
   price: number;
 }
 
+export type SellQuoteStatus = "Pending" | "Approved" | "Expired" | "Cancelled";
+
+export interface SellQuote {
+  quoteId: string;
+  isinName: string;
+  isin: string;
+  units: number;
+  yield: number;
+  purchaseDate: string;
+  purchaseAmount: number;
+  expiredAt: string;
+  status: SellQuoteStatus;
+}
+
 export interface IFA {
   id: string;
   name: string;

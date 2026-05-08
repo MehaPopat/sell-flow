@@ -1,4 +1,4 @@
-import type { BondOrder, DematAccount, IFA, IFAProfile, Investor, InvestorProfile, NegotiationDetail, SellOrder, SellRequest, Transaction } from "@/types";
+import type { BondOrder, DematAccount, IFA, IFAProfile, Investor, InvestorProfile, NegotiationDetail, SellOrder, SellQuote, SellRequest, Transaction } from "@/types";
 
 export const DEMAT_ACCOUNTS: DematAccount[] = [
   {
@@ -239,6 +239,78 @@ export const SELL_REQUESTS: SellRequest[] = [
   { requestId: "SR-009", bondName: "Reliance Industries Ltd",  orderId: "ORD-001", units: 15, yield: 9.0,  settlementDate: "2026-03-24", status: "InProgress" },
   { requestId: "SR-010", bondName: "Tata Capital 8.75%",       orderId: "ORD-002", units: 10, yield: 8.8,  settlementDate: "2026-03-10", status: "Terminated" },
   { requestId: "SR-011", bondName: "Bajaj Finance 9.10%",      orderId: "ORD-006", units: 10, yield: 9.5,  settlementDate: "2026-05-10", status: "Negotiation" },
+  { requestId: "SR-012", bondName: "NTPC Ltd 7.25%",           orderId: "ORD-008", units: 5,  yield: 7.5,  settlementDate: "2026-05-15", status: "Seller Approved" },
+  { requestId: "SR-013", bondName: "L&T Finance Ltd 8.75%",    orderId: "ORD-007", units: 8,  yield: 8.9,  settlementDate: "2026-05-18", status: "Payment Done" },
+  { requestId: "SR-014", bondName: "Tata Steel Ltd 9.20%",     orderId: "ORD-006", units: 12, yield: 9.0,  settlementDate: "2026-05-20", status: "Processing" },
+];
+
+export const SELL_QUOTES: SellQuote[] = [
+  {
+    quoteId: "SQ-001",
+    isinName: "Aditya Birla Finance Ltd 9.50% 2027",
+    isin: "INE860H08025",
+    units: 10,
+    yield: 9.5,
+    purchaseDate: "2024-11-15",
+    purchaseAmount: 10500,
+    expiredAt: "2026-05-08T18:00:00",
+    status: "Pending",
+  },
+  {
+    quoteId: "SQ-002",
+    isinName: "Tata Capital Financial 8.80% 2026",
+    isin: "INE261F08181",
+    units: 25,
+    yield: 8.8,
+    purchaseDate: "2024-09-20",
+    purchaseAmount: 9800,
+    expiredAt: "2026-05-05T18:00:00",
+    status: "Expired",
+  },
+  {
+    quoteId: "SQ-003",
+    isinName: "Mahindra Rural Housing 9.10% 2028",
+    isin: "INE950O08023",
+    units: 15,
+    yield: 9.1,
+    purchaseDate: "2025-01-10",
+    purchaseAmount: 10200,
+    expiredAt: "2026-05-06T18:00:00",
+    status: "Cancelled",
+  },
+  {
+    quoteId: "SQ-004",
+    isinName: "Shriram Transport Finance 9.75% 2027",
+    isin: "INE721A08046",
+    units: 8,
+    yield: 9.75,
+    purchaseDate: "2025-03-05",
+    purchaseAmount: 10800,
+    expiredAt: "2026-05-09T18:00:00",
+    status: "Pending",
+  },
+  {
+    quoteId: "SQ-005",
+    isinName: "IIFL Finance Ltd 9.25% 2027",
+    isin: "INE530B08042",
+    units: 20,
+    yield: 9.25,
+    purchaseDate: "2025-02-12",
+    purchaseAmount: 10300,
+    expiredAt: "2026-05-04T18:00:00",
+    status: "Approved",
+  },
+  {
+    quoteId: "SQ-006",
+    isinName: "Sundaram Finance Ltd 8.60% 2026",
+    isin: "INE660A08052",
+    units: 12,
+    yield: 8.6,
+    purchaseDate: "2024-12-01",
+    purchaseAmount: 9950,
+    expiredAt: "2026-05-03T18:00:00",
+    status: "Approved",
+  },
 ];
 
 export const NEGOTIATION_DETAILS: NegotiationDetail[] = [
@@ -289,9 +361,9 @@ export const TRANSACTIONS: Transaction[] = [
   { id: "SR-004", type: "Sell", bondName: "Bajaj Finance 9.10%",      isin: "INE152A08101", units: 30, price: 1000, yield: 9.3,  date: "2026-03-15", utr: "UTR202603150001", bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Settled" },
   { id: "SR-010", type: "Sell", bondName: "Tata Capital 8.75%",       isin: "INE261F08181", units: 10, price: 1000, yield: 8.8,  date: "2026-03-10", utr: undefined,         bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Terminated" },
   // Buy transactions
-  { id: "ORD-004", type: "Buy", bondName: "ICICI Bank 8.40%",         isin: "INE090A08UJ3", units: 30,  price: 1010, date: "2025-01-05", dematAccountId: "acc2", status: "Settled" },
-  { id: "ORD-005", type: "Buy", bondName: "Bajaj Finance 9.10%",      isin: "INE152A08101", units: 75,  price: 1005, date: "2024-11-18", dematAccountId: "acc2", status: "Settled" },
-  { id: "ORD-002", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 30,  price: 1015, date: "2024-06-20", dematAccountId: "acc1", status: "Settled" },
-  { id: "ORD-001", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 50,  price: 1020, date: "2024-03-15", dematAccountId: "acc1", status: "Settled" },
-  { id: "ORD-003", type: "Buy", bondName: "HDFC Bank Ltd",            isin: "INE040A08120", units: 100, price: 995,  date: "2024-01-10", dematAccountId: "acc1", status: "Settled" },
+  { id: "ORD-004", type: "Buy", bondName: "ICICI Bank 8.40%",         isin: "INE090A08UJ3", units: 30,  price: 1010, yield: 8.40, date: "2025-01-05", utr: "UTR202501050012", bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Settled" },
+  { id: "ORD-005", type: "Buy", bondName: "Bajaj Finance 9.10%",      isin: "INE152A08101", units: 75,  price: 1005, yield: 9.10, date: "2024-11-18", utr: "UTR202411180034", bank: DEFAULT_BANK, dematAccountId: "acc2", status: "Settled" },
+  { id: "ORD-002", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 30,  price: 1015, yield: 8.95, date: "2024-06-20", utr: "UTR202406200021", bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Settled" },
+  { id: "ORD-001", type: "Buy", bondName: "Reliance Industries Ltd",  isin: "INE002A07RY8", units: 50,  price: 1020, yield: 8.95, date: "2024-03-15", utr: "UTR202403150009", bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Settled" },
+  { id: "ORD-003", type: "Buy", bondName: "HDFC Bank Ltd",            isin: "INE040A08120", units: 100, price: 995,  yield: 7.95, date: "2024-01-10", utr: "UTR202401100003", bank: DEFAULT_BANK, dematAccountId: "acc1", status: "Settled" },
 ];

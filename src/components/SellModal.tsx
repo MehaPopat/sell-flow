@@ -1,5 +1,26 @@
 import { useState } from "react";
 import type { BondOrder, Holding, UserRole } from "@/types";
+import { DEMAT_ACCOUNTS } from "@/data/mockData";
+
+const dematMap = Object.fromEntries(DEMAT_ACCOUNTS.map((a) => [a.id, a]));
+
+const SETTLEMENT_BANKS = [
+  { id: "b1", name: "HDFC Bank",  masked: "****6789", type: "Savings", ifsc: "HDFC0001234" },
+  { id: "b2", name: "ICICI Bank", masked: "****9012", type: "Savings", ifsc: "ICIC0001567" },
+  { id: "b3", name: "SBI",        masked: "****3456", type: "Savings", ifsc: "SBIN0050432" },
+];
+
+function dateStr(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().split("T")[0];
+}
+
+function formatDateDisplay(iso: string): string {
+  if (!iso) return "";
+  const [y, m, day] = iso.split("-");
+  return `${day}/${m}/${y}`;
+}
 
 interface SellModalProps {
   order: BondOrder;
@@ -13,19 +34,25 @@ interface SellModalProps {
 }
 
 export function SellModal({ order, holding, role, investorName, investorPhone, onBack, onClose, onSuccess }: SellModalProps) {
+  const yieldMatch = holding.bondName.match(/(\d+\.\d+)%/);
+  const purchaseYield = yieldMatch ? parseFloat(yieldMatch[1]) : null;
+
   const [step, setStep] = useState<"form" | "otp" | "success">("form");
   const [submitting, setSubmitting] = useState(false);
 
+  // Form fields
   const [units, setUnits] = useState("");
-  const [desiredYield, setDesiredYield] = useState("");
+  const [desiredYield, setDesiredYield] = useState(purchaseYield !== null ? String(purchaseYield) : "");
   const [yieldError, setYieldError] = useState("");
+  const [selectedBankId, setSelectedBankId] = useState(SETTLEMENT_BANKS[0].id);
   const [confirmed, setConfirmed] = useState(false);
 
+  // Settlement date is determined by the backend (T+1 from submission)
+  const settlementDate = dateStr(1);
+
+  // OTP
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
-
-  const yieldMatch = holding.bondName.match(/(\d+\.\d+)%/);
-  const purchaseYield = yieldMatch ? parseFloat(yieldMatch[1]) : null;
 
   const unitsNum = Number(units);
 
@@ -39,7 +66,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
   const minYield = purchaseYield !== null ? Math.max(0, purchaseYield - 10) : 0;
   const maxYield = purchaseYield !== null ? Math.min(100, purchaseYield + 10) : 100;
 
-  const handleDesiredYieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleDesiredYieldChange(e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
     setDesiredYield(value);
     if (value === "") { setYieldError(""); return; }
@@ -49,7 +76,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
     } else {
       setYieldError("");
     }
-  };
+  }
 
   const canSubmit =
     units !== "" &&
@@ -57,15 +84,12 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
     unitsNum <= order.available &&
     desiredYield !== "" &&
     !yieldError &&
+    selectedBankId !== "" &&
     confirmed;
 
   function handleFormSubmit() {
     if (!canSubmit) return;
-    if (role === "investor") {
-      setStep("success");
-    } else {
-      setStep("otp");
-    }
+    setStep("otp");
   }
 
   async function handleVerifyOtp() {
@@ -79,9 +103,14 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
     setStep("success");
   }
 
-  const maskedPhone = investorPhone
-    ? `+91 ****${investorPhone.slice(-4)}`
-    : "investor's registered number";
+  const selectedBank = SETTLEMENT_BANKS.find((b) => b.id === selectedBankId);
+
+  // OTP destination text differs by role
+  const otpSentTo = role === "investor"
+    ? "your registered mobile number"
+    : investorPhone
+      ? `+91 ****${investorPhone.slice(-4)} (investor)`
+      : "investor's registered number";
 
   return (
     <>
@@ -112,6 +141,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   Sell from order <span className="font-bold">{order.orderId}</span>
                 </p>
 
+                {/* Bond details */}
                 <div className="bg-muted rounded-xl p-4 space-y-1">
                   <p className="text-sm font-semibold">{holding.bondName}</p>
                   <p className="text-xs text-muted-foreground font-mono">{holding.isin}</p>
@@ -129,6 +159,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   )}
                 </div>
 
+                {/* Units */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium block">
                     Units to Sell (Available {order.available})
@@ -145,6 +176,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   {unitsError && <p className="text-xs text-destructive">{unitsError}</p>}
                 </div>
 
+                {/* Desired Yield */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium block">Desired Yield (%)</label>
                   <input
@@ -154,7 +186,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                     max={maxYield}
                     placeholder={
                       purchaseYield !== null
-                        ? `e.g. ${minYield.toFixed(2)} - ${maxYield.toFixed(2)}`
+                        ? `e.g. ${minYield.toFixed(2)} – ${maxYield.toFixed(2)}`
                         : "e.g. 9.25"
                     }
                     value={desiredYield}
@@ -164,6 +196,32 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   {yieldError && <p className="text-xs text-destructive">{yieldError}</p>}
                 </div>
 
+                {/* Settlement Bank */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Settlement Bank Account</label>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm appearance-none bg-white ${
+                      !selectedBankId ? "border-input" : "border-input"
+                    }`}
+                  >
+                    <option value="">Select bank account for settlement…</option>
+                    {SETTLEMENT_BANKS.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} — {b.masked} ({b.type}) · {b.ifsc}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedBank && (
+                    <p className="text-xs text-muted-foreground">
+                      Proceeds will be credited to <span className="font-medium">{selectedBank.name} {selectedBank.masked}</span>
+                    </p>
+                  )}
+                </div>
+
+
+                {/* Confirm */}
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -199,22 +257,28 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
             </>
           )}
 
-          {/* ── OTP STEP (IFA / Ops only) ── */}
+          {/* ── OTP STEP ── */}
           {step === "otp" && (
             <>
               <div className="flex items-start justify-between px-6 py-4 border-b border-border">
                 <div>
                   <h2 className="font-semibold text-base">Verify OTP</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Confirm this sell request with investor's OTP
+                    {role === "investor"
+                      ? "Enter the OTP sent to your registered mobile number to confirm"
+                      : "Confirm this sell request with the investor's OTP"}
                   </p>
                 </div>
               </div>
 
-              <div className="px-6 py-5 space-y-5">
+              <div className="px-6 py-5 space-y-4">
+
+                {/* OTP sent-to info */}
                 <div className="bg-muted rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Investor Details</p>
-                  {investorName && (
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {role === "investor" ? "Your Details" : "Investor Details"}
+                  </p>
+                  {role !== "investor" && investorName && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Name</span>
                       <span className="font-medium">{investorName}</span>
@@ -222,10 +286,11 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">OTP sent to</span>
-                    <span className="font-medium">{maskedPhone}</span>
+                    <span className="font-medium">{otpSentTo}</span>
                   </div>
                 </div>
 
+                {/* Order + trade details */}
                 <div className="bg-muted rounded-xl p-4 space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Details</p>
                   <div className="flex justify-between text-sm">
@@ -234,7 +299,7 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Bond</span>
-                    <span className="font-medium text-right max-w-[60%]">{holding.bondName}</span>
+                    <span className="font-medium text-right max-w-[60%] leading-snug">{holding.bondName}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Units</span>
@@ -244,8 +309,40 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                     <span className="text-muted-foreground">Desired Yield</span>
                     <span className="font-medium">{desiredYield}%</span>
                   </div>
+                  <div className="border-t border-border/60 pt-2 flex justify-between text-sm">
+                    <span className="text-muted-foreground">Purchase Price</span>
+                    <span className="font-semibold">₹{order.price.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Settlement Date</span>
+                    <span className="font-semibold">{formatDateDisplay(settlementDate)}</span>
+                  </div>
+                  {selectedBank && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Settlement Bank</span>
+                      <span className="font-medium text-right">
+                        {selectedBank.name} {selectedBank.masked}
+                      </span>
+                    </div>
+                  )}
+                  {dematMap[order.dematAccountId] && (() => {
+                    const d = dematMap[order.dematAccountId];
+                    return (
+                      <>
+                        <div className="border-t border-border/60 pt-2 flex justify-between text-sm">
+                          <span className="text-muted-foreground">Demat Account</span>
+                          <span className="font-medium">{d.dpName}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Account No.</span>
+                          <span className="font-medium">XXXX XXXX {d.accountNumber.slice(-4)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
+                {/* OTP input */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium block">Enter OTP</label>
                   <input
@@ -261,6 +358,12 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
                     className={`w-full rounded-lg border px-3 py-2 text-sm tracking-widest text-center ${otpError ? "border-destructive" : "border-input"}`}
                   />
                   {otpError && <p className="text-xs text-destructive">{otpError}</p>}
+                  <p className="text-xs text-muted-foreground text-center">
+                    Didn't receive OTP?{" "}
+                    <button type="button" className="text-accent font-medium hover:underline">
+                      Resend
+                    </button>
+                  </p>
                 </div>
 
                 <div className="flex gap-3">
@@ -296,8 +399,13 @@ export function SellModal({ order, holding, role, investorName, investorPhone, o
               <div className="space-y-2">
                 <h2 className="font-semibold text-base">Request Submitted</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Your request has been submitted successfully. We will review your order and
-                  communicate with you for further process.
+                  Your sell request has been submitted successfully. Settlement is expected on{" "}
+                  <span className="font-semibold text-foreground">{formatDateDisplay(settlementDate)}</span>{" "}
+                  via{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedBank ? `${selectedBank.name} ${selectedBank.masked}` : "your selected bank"}
+                  </span>
+                  . We will review your order and communicate with you for further steps.
                 </p>
               </div>
               <button

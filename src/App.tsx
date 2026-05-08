@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import SellOrdersPage from "@/pages/SellOrdersPage";
-import SellRequestsPage from "@/pages/SellRequestsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
 import OpsDashboardPage from "@/pages/OpsDashboardPage";
 import HoldPage from "@/pages/HoldPage";
@@ -14,6 +13,7 @@ import AdminIFAListPage from "@/pages/AdminIFAListPage";
 import AdminIFAProfilePage from "@/pages/AdminIFAProfilePage";
 import AdminIFAInvestorListPage from "@/pages/AdminIFAInvestorListPage";
 import AdminInvestorListPage from "@/pages/AdminInvestorListPage";
+import SellQuotesPage from "@/pages/SellQuotesPage";
 
 export default function App() {
   return (
@@ -27,8 +27,8 @@ export default function App() {
         <Route path="/ifa/investors/:id/profile" element={<InvestorProfilePage />} />
         <Route path="/ifa/profile" element={<IFASelfProfilePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/sell-requests" element={<SellRequestsPage />} />
-        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/sell-quotes" element={<SellQuotesPage />} />
+        <Route path="/orders" element={<TransactionsPage />} />
         <Route path="/sell-orders" element={<SellOrdersPage />} />
         <Route path="/sell-orders/:role" element={<SellOrdersPage />} />
         <Route path="/ops" element={<OpsDashboardPage />} />

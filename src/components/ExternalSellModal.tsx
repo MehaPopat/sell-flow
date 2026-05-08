@@ -3,6 +3,19 @@ import type { UserRole } from "@/types";
 import { sendOpsEmail } from "@/services/api";
 
 
+const SETTLEMENT_BANKS = [
+  { id: "b1", name: "HDFC Bank",  masked: "****6789", type: "Savings", ifsc: "HDFC0001234" },
+  { id: "b2", name: "ICICI Bank", masked: "****9012", type: "Savings", ifsc: "ICIC0001567" },
+  { id: "b3", name: "SBI",        masked: "****3456", type: "Savings", ifsc: "SBIN0050432" },
+];
+
+const DEMAT_ACCOUNTS_LIST = [
+  { id: "acc1", dpName: "HDFC Securities",       accountNumber: "1234567887654321", dpType: "NSDL" },
+  { id: "acc2", dpName: "ICICI Direct",           accountNumber: "2345678998765432", dpType: "CDSL" },
+  { id: "acc3", dpName: "Zerodha",                accountNumber: "3456789009876543", dpType: "NSDL" },
+  { id: "acc4", dpName: "Liquibonds Securities",  accountNumber: "2234567887655621", dpType: "CDSL" },
+];
+
 const AVAILABLE_ISINS = [
   { isin: "INE002A07RY8", bondName: "Reliance Industries Ltd 8.95% 2027" },
   { isin: "INE040A08120", bondName: "HDFC Bank Ltd 7.95% 2028" },
@@ -32,6 +45,10 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
   const [isinValue, setIsinValue] = useState("");
   const [units, setUnits] = useState("");
   const [desiredYield, setDesiredYield] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState("");
+  const [purchaseAmount, setPurchaseAmount] = useState("");
+  const [selectedBankId, setSelectedBankId] = useState(SETTLEMENT_BANKS[0].id);
+  const [selectedDematId, setSelectedDematId] = useState(DEMAT_ACCOUNTS_LIST[0].id);
   const [confirmed, setConfirmed] = useState(false);
 
   // Validation errors
@@ -55,8 +72,10 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
     if (value !== "other") {
       setIsinName("");
       setIsinValue("");
+      setPurchaseDate("");
+      setPurchaseAmount("");
     }
-    setErrors((prev) => ({ ...prev, isin: "", isinName: "", isinValue: "" }));
+    setErrors((prev) => ({ ...prev, isin: "", isinName: "", isinValue: "", purchaseDate: "", purchaseAmount: "" }));
   }
 
   function validate() {
@@ -64,10 +83,14 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
     if (!selectedIsin) next.isin = "Please select a Bond ISIN.";
     if (isOther && !isinName.trim()) next.isinName = "ISIN Name is required.";
     if (isOther && !isinValue.trim()) next.isinValue = "ISIN Value is required.";
+    if (isOther && !purchaseDate) next.purchaseDate = "Purchase Date is required.";
+    if (isOther && (purchaseAmount === "" || Number(purchaseAmount) <= 0))
+      next.purchaseAmount = "Purchase Amount must be greater than 0.";
     if (units === "" || unitsNum < 1 || unitsNum > 1000)
       next.units = "Units must be between 1 and 1000.";
     if (desiredYield === "" || yieldNum < 0 || yieldNum > 100)
       next.desiredYield = "Desired Yield must be between 0 and 100.";
+    if (!selectedBankId) next.bank = "Please select a settlement bank account.";
     if (!confirmed) next.confirmed = "Please confirm the details before submitting.";
     return next;
   }
@@ -90,14 +113,7 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
       setErrors(next);
       return;
     }
-    if (role === "investor") {
-      setSubmitting(true);
-      await submitEmail();
-      setSubmitting(false);
-      setStep("success");
-    } else {
-      setStep("otp");
-    }
+    setStep("otp");
   }
 
   async function handleVerifyOtp() {
@@ -111,9 +127,11 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
     setStep("success");
   }
 
-  const maskedPhone = investorPhone
-    ? `+91 ****${investorPhone.slice(-4)}`
-    : "investor's registered number";
+  const maskedPhone = role === "investor"
+    ? "your registered mobile number"
+    : investorPhone
+      ? `+91 ****${investorPhone.slice(-4)}`
+      : "investor's registered number";
 
   return (
     <>
@@ -198,6 +216,37 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
                       />
                       {errors.isinValue && <p className="text-xs text-destructive">{errors.isinValue}</p>}
                     </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium block">Purchase Date</label>
+                      <input
+                        type="date"
+                        max={new Date().toISOString().split("T")[0]}
+                        value={purchaseDate}
+                        onChange={(e) => {
+                          setPurchaseDate(e.target.value);
+                          if (e.target.value) setErrors((prev) => ({ ...prev, purchaseDate: "" }));
+                        }}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.purchaseDate ? "border-destructive" : "border-input"}`}
+                      />
+                      {errors.purchaseDate && <p className="text-xs text-destructive">{errors.purchaseDate}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium block">Purchase Amount (₹ per unit)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 10500"
+                        value={purchaseAmount}
+                        onChange={(e) => {
+                          setPurchaseAmount(e.target.value);
+                          if (Number(e.target.value) > 0) setErrors((prev) => ({ ...prev, purchaseAmount: "" }));
+                        }}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.purchaseAmount ? "border-destructive" : "border-input"}`}
+                      />
+                      {errors.purchaseAmount && <p className="text-xs text-destructive">{errors.purchaseAmount}</p>}
+                    </div>
                   </>
                 )}
 
@@ -234,6 +283,52 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
                     className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.desiredYield ? "border-destructive" : "border-input"}`}
                   />
                   {errors.desiredYield && <p className="text-xs text-destructive">{errors.desiredYield}</p>}
+                </div>
+
+                {/* Settlement Bank */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Settlement Bank Account</label>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => {
+                      setSelectedBankId(e.target.value);
+                      if (e.target.value) setErrors((prev) => ({ ...prev, bank: "" }));
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm appearance-none bg-white ${errors.bank ? "border-destructive" : "border-input"}`}
+                  >
+                    <option value="">Select bank account for settlement…</option>
+                    {SETTLEMENT_BANKS.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} — {b.masked} ({b.type}) · {b.ifsc}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.bank && <p className="text-xs text-destructive">{errors.bank}</p>}
+                  {selectedBankId && (() => {
+                    const bank = SETTLEMENT_BANKS.find((b) => b.id === selectedBankId);
+                    return bank ? (
+                      <p className="text-xs text-muted-foreground">
+                        Proceeds will be credited to{" "}
+                        <span className="font-medium">{bank.name} {bank.masked}</span>
+                      </p>
+                    ) : null;
+                  })()}
+                </div>
+
+                {/* Demat Account */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium block">Demat Account</label>
+                  <select
+                    value={selectedDematId}
+                    onChange={(e) => setSelectedDematId(e.target.value)}
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm appearance-none bg-white"
+                  >
+                    {DEMAT_ACCOUNTS_LIST.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.dpName} — XXXX XXXX {d.accountNumber.slice(-4)} ({d.dpType})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Confirm checkbox */}
@@ -294,7 +389,7 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
               <div className="px-6 py-5 space-y-5">
                 {/* Investor details */}
                 <div className="bg-muted rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Investor Details</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{role === "investor" ? "Your Details" : "Investor Details"}</p>
                   {investorName && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Name</span>
@@ -322,6 +417,44 @@ export function ExternalSellModal({ role, investorName, investorPhone, onClose, 
                     <span className="text-muted-foreground">Desired Yield</span>
                     <span className="font-medium">{desiredYield}%</span>
                   </div>
+                  {isOther && purchaseDate && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Purchase Date</span>
+                      <span className="font-medium">
+                        {purchaseDate.split("-").reverse().join("/")}
+                      </span>
+                    </div>
+                  )}
+                  {isOther && purchaseAmount && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Purchase Amount</span>
+                      <span className="font-medium">₹{Number(purchaseAmount).toLocaleString("en-IN")} / unit</span>
+                    </div>
+                  )}
+                  {(() => {
+                    const bank = SETTLEMENT_BANKS.find((b) => b.id === selectedBankId);
+                    return bank ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Settlement Bank</span>
+                        <span className="font-medium">{bank.name} {bank.masked}</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  {(() => {
+                    const d = DEMAT_ACCOUNTS_LIST.find((a) => a.id === selectedDematId);
+                    return d ? (
+                      <>
+                        <div className="border-t border-border/60 pt-2 flex justify-between text-sm">
+                          <span className="text-muted-foreground">Demat Account</span>
+                          <span className="font-medium">{d.dpName}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Account No.</span>
+                          <span className="font-medium">XXXX XXXX {d.accountNumber.slice(-4)}</span>
+                        </div>
+                      </>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* OTP input */}

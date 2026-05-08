@@ -14,7 +14,7 @@
   --input: 214 32% 91%;
   --muted: 210 40% 96%;
   --muted-foreground: 215 16% 47%;
-  --accent: 263 70% 50%;
+  --accent: 221 83% 53%;
   --accent-foreground: 0 0% 100%;
   --success: 142 71% 45%;
   --success-foreground: 0 0% 100%;
@@ -108,7 +108,7 @@ input {
   width: 44px;
   height: 44px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.22);
 }
 
@@ -378,7 +378,7 @@ input {
   background: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
   border-color: transparent;
-  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.2);
 }
 
 .role-inactive {
@@ -446,7 +446,8 @@ input:focus {
 
 .primary-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  background: #6d28d9;
+  background: #1d4ed8;
+  color: #ffffff;
 }
 
 .primary-button:disabled {
@@ -488,7 +489,7 @@ input:focus {
 .otp-input:focus {
   outline: none;
   border-color: hsl(var(--accent));
-  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
 .otp-note {
@@ -538,7 +539,7 @@ input:focus {
 
 .search-bar:focus-within {
   border-color: hsl(var(--accent));
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .search-icon {

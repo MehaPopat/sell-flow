@@ -213,6 +213,17 @@ export function NegotiateModal({ request, onClose, onSuccess }: NegotiateModalPr
                         className={`w-full rounded-lg border px-3 py-2 text-sm ${yieldError ? "border-destructive" : "border-input"}`}
                       />
                       {yieldError && <p className="text-xs text-destructive">{yieldError}</p>}
+                      {(() => {
+                        const y = parseFloat(counterYield);
+                        if (!counterYield || isNaN(y) || y <= 0) return null;
+                        const price = Math.round(1000 * (request.yield / y));
+                        return (
+                          <div className="flex items-center justify-between bg-accent/10 rounded-lg px-3 py-2 mt-1">
+                            <span className="text-xs text-muted-foreground">Calculated Price</span>
+                            <span className="text-sm font-bold text-accent">₹{price.toLocaleString("en-IN")}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium block">Remark (Optional)</label>

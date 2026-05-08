@@ -1,5 +1,5 @@
-import { BOND_ORDERS, DEMAT_ACCOUNTS, IFA_PROFILES, IFAS, INVESTOR_PROFILES, INVESTORS, NEGOTIATION_DETAILS, SELL_ORDERS, SELL_REQUESTS, TRANSACTIONS } from "@/data/mockData";
-import type { BondOrder, DematAccount, Holding, IFA, IFAProfile, Investor, InvestorProfile, NegotiationDetail, SellOrder, SellRequest, Transaction } from "@/types";
+import { BOND_ORDERS, DEMAT_ACCOUNTS, IFA_PROFILES, IFAS, INVESTOR_PROFILES, INVESTORS, NEGOTIATION_DETAILS, SELL_ORDERS, SELL_QUOTES, SELL_REQUESTS, TRANSACTIONS } from "@/data/mockData";
+import type { BondOrder, DematAccount, Holding, IFA, IFAProfile, Investor, InvestorProfile, NegotiationDetail, SellOrder, SellQuote, SellRequest, Transaction } from "@/types";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -63,6 +63,11 @@ export async function fetchInvestorsForIFA(ifaId: string): Promise<Investor[]> {
 export async function fetchBondOrders(isin: string, accountId: string): Promise<BondOrder[]> {
   await delay(160);
   return BOND_ORDERS.filter((o) => o.isin === isin && o.dematAccountId === accountId);
+}
+
+export async function fetchSellQuotes(): Promise<SellQuote[]> {
+  await delay(160);
+  return SELL_QUOTES;
 }
 
 export async function fetchSellRequests(): Promise<SellRequest[]> {

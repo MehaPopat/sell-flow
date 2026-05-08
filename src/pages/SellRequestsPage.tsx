@@ -1,38 +1,40 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { fetchSellRequests } from "@/services/api";
-import type { SellRequest, SellRequestStatus } from "@/types";
+import type { SellRequest, SellRequestStatus, UserRole } from "@/types";
 import { PortalLayout } from "@/components/PortalLayout";
 import { NegotiateModal } from "@/components/NegotiateModal";
 import { SellActionModal } from "@/components/SellActionModal";
 import type { SellActionType } from "@/components/SellActionModal";
 import { SuccessModal } from "@/components/SuccessModal";
 
-const FLOW_STEPS: { label: string; color: string }[][] = [
-  // Flow 0 — Auto Approved Flow
-  [
-    { label: "1. Sell Initiated",  color: "bg-blue-100 text-blue-700" },
-    { label: "2. Auto Approved",  color: "bg-green-100 text-green-700" },
-    { label: "3. Payment Done",   color: "bg-cyan-100 text-cyan-700" },
-    { label: "4. Processing",     color: "bg-orange-100 text-orange-700" },
-    { label: "5. Settled",        color: "bg-emerald-100 text-emerald-700" },
-  ],
+// ── Flow pipeline display ─────────────────────────────────────────────────────
 
-  // Flow 1 — Negotiation Flow
-  [
-    { label: "1. Sell Initiated",  color: "bg-blue-100 text-blue-700" },
-    { label: "2. Negotiation",     color: "bg-amber-100 text-amber-700" },
-    { label: "3. Buyer Approved",  color: "bg-green-100 text-green-700" },
-    { label: "4. Seller Approved", color: "bg-teal-100 text-teal-700" },
-    { label: "5. Payment Done",    color: "bg-cyan-100 text-cyan-700" },
-    { label: "6. Processing",      color: "bg-orange-100 text-orange-700" },
-    { label: "7. Settled",         color: "bg-emerald-100 text-emerald-700" },
-  ]
+const AUTO_APPROVED_FLOW: { label: string; color: string }[] = [
+  { label: "Sell Initiated",  color: "bg-blue-100 text-blue-700" },
+  { label: "Auto Approved",   color: "bg-green-100 text-green-700" },
+  { label: "DIS Submitted",   color: "bg-sky-100 text-sky-700" },
+  { label: "Payment Done",    color: "bg-cyan-100 text-cyan-700" },
+  { label: "Settled",         color: "bg-emerald-100 text-emerald-700" },
+];
+
+const NEGOTIATION_FLOW: { label: string; color: string }[] = [
+  { label: "Sell Initiated",  color: "bg-blue-100 text-blue-700" },
+  { label: "Negotiation",     color: "bg-amber-100 text-amber-700" },
+  { label: "Buyer Approved",  color: "bg-green-100 text-green-700" },
+  { label: "Seller Approved", color: "bg-teal-100 text-teal-700" },
+  { label: "DIS Submitted",   color: "bg-sky-100 text-sky-700" },
+  { label: "Payment Done",    color: "bg-cyan-100 text-cyan-700" },
+  { label: "Processing",      color: "bg-orange-100 text-orange-700" },
+  { label: "Settled",         color: "bg-emerald-100 text-emerald-700" },
 ];
 
 const FILTER_TABS: Array<SellRequestStatus | "All"> = [
-  "All", "Sell Initiated", "Auto Approved", "Negotiation", "Buyer Approved", "Seller Approved",
-  "Rejected", "Payment Done", "Processing", "Settled", "Terminated",
+  "All", "Sell Initiated", "Auto Approved", "Negotiation", "Buyer Approved",
+  "Seller Approved", "Payment Done", "Processing", "Settled", "Rejected", "Terminated",
 ];
+
+// ── Status badge ──────────────────────────────────────────────────────────────
 
 function statusStyle(status: SellRequestStatus): string {
   switch (status) {
@@ -50,65 +52,160 @@ function statusStyle(status: SellRequestStatus): string {
   }
 }
 
+// ── Button styles ─────────────────────────────────────────────────────────────
+
 const btn = {
-  primary:  "rounded-full px-3 py-1.5 text-xs font-semibold bg-accent text-white border border-transparent transition hover:-translate-y-px",
-  success:  "rounded-full px-3 py-1.5 text-xs font-semibold bg-green-600 text-white border border-transparent transition hover:-translate-y-px",
-  danger:   "rounded-full px-3 py-1.5 text-xs font-semibold border border-red-300 text-red-600 bg-transparent hover:bg-red-50 transition",
-  ghost:    "rounded-full px-3 py-1.5 text-xs font-semibold border border-input text-muted-foreground bg-transparent hover:text-foreground hover:border-foreground/30 transition",
-  muted:    "rounded-full px-3 py-1.5 text-xs font-semibold bg-muted text-muted-foreground cursor-default select-none",
+  primary: "rounded-full px-3 py-1.5 text-xs font-semibold bg-accent text-white border border-transparent transition hover:-translate-y-px",
+  success: "rounded-full px-3 py-1.5 text-xs font-semibold bg-green-600 text-white border border-transparent transition hover:-translate-y-px",
+  danger:  "rounded-full px-3 py-1.5 text-xs font-semibold border border-red-300 text-red-600 bg-transparent hover:bg-red-50 transition",
+  ghost:   "rounded-full px-3 py-1.5 text-xs font-semibold border border-input text-muted-foreground bg-transparent hover:text-foreground hover:border-foreground/30 transition",
+  warning: "rounded-full px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white border border-transparent transition hover:-translate-y-px",
+  muted:   "rounded-full px-3 py-1.5 text-xs font-semibold bg-muted text-muted-foreground cursor-default select-none",
 };
+
+// ── Status actions (role-aware) ───────────────────────────────────────────────
 
 interface StatusActionsProps {
   status: SellRequestStatus;
-  onNegotiate?: () => void;
-  onCancel?: () => void;
-  onReject?: () => void;
-  onApprove?: () => void;
-  onView?: () => void;
-  onDIS?: () => void;
+  role: UserRole;
+  onNegotiate: () => void;
+  onAction: (type: SellActionType) => void;
 }
 
-function StatusActions({ status, onNegotiate, onCancel, onReject, onApprove, onView, onDIS }: StatusActionsProps) {
+function StatusActions({ status, role, onNegotiate, onAction }: StatusActionsProps) {
+  // ── OPS view ──────────────────────────────────────────────────────────────
+  if (role === "ops") {
+    switch (status) {
+      case "Sell Initiated":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.success}  onClick={() => onAction("match")}>✓ Match</button>
+            <button className={btn.primary}  onClick={() => onAction("to-negotiation")}>Negotiate</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Negotiation":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.success}  onClick={() => onAction("approve")}>✓ Accept (Buyer)</button>
+            <button className={btn.danger}   onClick={() => onAction("reject")}>× Reject</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>Terminate</button>
+          </div>
+        );
+      case "Buyer Approved":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={btn.muted}>Awaiting Seller</span>
+            <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
+            <button className={btn.danger} onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Seller Approved":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.success}  onClick={() => onAction("confirm-payment")}>✓ Confirm Payment</button>
+            <button className={btn.ghost}    onClick={() => onAction("dis")}>📎 DIS</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Auto Approved":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.success}  onClick={() => onAction("confirm-payment")}>✓ Confirm Payment</button>
+            <button className={btn.ghost}    onClick={() => onAction("dis")}>📎 DIS</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Payment Done":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.warning}  onClick={() => onAction("to-processing")}>Mark Processing</button>
+            <button className={btn.ghost}    onClick={() => onAction("view")}>View</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Processing":
+      case "InProgress":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.success}  onClick={() => onAction("to-settled")}>✓ Mark Settled</button>
+            <button className={btn.ghost}    onClick={() => onAction("view")}>View</button>
+            <button className={btn.danger}   onClick={() => onAction("terminate")}>× Terminate</button>
+          </div>
+        );
+      case "Settled":
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.ghost}    onClick={() => onAction("view")}>View</button>
+            <button className={btn.ghost}    onClick={() => onAction("dis")}>📎 DIS</button>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
+          </div>
+        );
+    }
+  }
+
+  // ── Investor / IFA view ───────────────────────────────────────────────────
   switch (status) {
     case "Sell Initiated":
       return (
-        <div className="flex items-center gap-2">
-          <button className={btn.danger} onClick={onCancel}>× Cancel</button>
+        <div className="flex items-center gap-1.5">
+          <button className={btn.danger} onClick={() => onAction("cancel")}>× Cancel</button>
         </div>
       );
     case "Negotiation":
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button className={btn.primary} onClick={onNegotiate}>Negotiate</button>
-          <button className={btn.danger} onClick={onReject}>× Reject</button>
+          <button className={btn.danger}  onClick={() => onAction("reject")}>× Reject</button>
         </div>
       );
     case "Buyer Approved":
       return (
-        <div className="flex items-center gap-2">
-          <button className={btn.success} onClick={onApprove}>✓ Approve</button>
-          <button className={btn.danger} onClick={onReject}>× Reject</button>
+        <div className="flex items-center gap-1.5">
+          <button className={btn.success} onClick={() => onAction("approve")}>✓ Approve</button>
+          <button className={btn.danger}  onClick={() => onAction("reject")}>× Reject</button>
         </div>
       );
-    case "Settled":
+    case "Seller Approved":
       return (
-        <div className="flex items-center gap-2">
-          <button className={btn.ghost} onClick={onView}>View</button>
-          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
+        <div className="flex items-center gap-1.5">
+          <button className={btn.ghost} onClick={() => onAction("dis")}>📎 Upload DIS</button>
+          <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
         </div>
       );
     case "Auto Approved":
       return (
-        <div className="flex items-center gap-2">
-          <button className={btn.ghost} onClick={onView}>View</button>
-          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
+        <div className="flex items-center gap-1.5">
+          <button className={btn.ghost} onClick={() => onAction("dis")}>📎 Upload DIS</button>
+          <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
         </div>
       );
+    case "Payment Done":
+    case "Processing":
     case "InProgress":
       return (
-        <div className="flex items-center gap-2">
-          <span className={btn.muted}>⏱ In Progress</span>
-          <button className={btn.ghost} onClick={onDIS}>📎 DIS</button>
+        <div className="flex items-center gap-1.5">
+          <span className={btn.muted}>In Progress</span>
+          <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
+        </div>
+      );
+    case "Settled":
+      return (
+        <div className="flex items-center gap-1.5">
+          <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
+          <button className={btn.ghost} onClick={() => onAction("dis")}>📎 DIS</button>
+        </div>
+      );
+    case "Rejected":
+    case "Terminated":
+      return (
+        <div className="flex items-center gap-1.5">
+          <button className={btn.ghost} onClick={() => onAction("view")}>View</button>
         </div>
       );
     default:
@@ -116,7 +213,34 @@ function StatusActions({ status, onNegotiate, onCancel, onReject, onApprove, onV
   }
 }
 
+// ── Success message copy ──────────────────────────────────────────────────────
+
+function successCopy(type: SellActionType): { title: string; body: string } {
+  switch (type) {
+    case "reject":           return { title: "Proposal Rejected",       body: "The proposal has been rejected successfully." };
+    case "cancel":           return { title: "Request Cancelled",       body: "Your sell request has been cancelled." };
+    case "approve":          return { title: "Proposal Approved",       body: "The proposal has been approved. Moving to Seller Approved." };
+    case "dis":              return { title: "DIS Uploaded",            body: "Your DIS copy has been uploaded successfully." };
+    case "terminate":        return { title: "Request Terminated",      body: "The sell request has been terminated as per the T+1 day policy." };
+    case "match":            return { title: "Auto-Approved",           body: "A buyer match was found. The sell request is now Auto Approved." };
+    case "to-negotiation":   return { title: "Sent to Negotiation",     body: "The request has been moved to the Negotiation phase." };
+    case "confirm-payment":  return { title: "Payment Confirmed",       body: "Payment has been confirmed. The request is now in Payment Done status." };
+    case "to-processing":    return { title: "Marked as Processing",    body: "The request is now in the Processing (T+1/T+2 settlement) phase." };
+    case "to-settled":       return { title: "Marked as Settled",       body: "The sell request has been marked as Settled successfully." };
+    default:                 return { title: "Done",                    body: "Action completed successfully." };
+  }
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function SellRequestsPage() {
+  const location = useLocation();
+  const pageRole: UserRole = location.pathname.startsWith("/admin")
+    ? "ops"
+    : location.pathname.startsWith("/ifa")
+    ? "ifa"
+    : "investor";
+
   const [requests, setRequests] = useState<SellRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<SellRequestStatus | "All">("All");
@@ -124,10 +248,6 @@ export default function SellRequestsPage() {
   const [negotiateSuccess, setNegotiateSuccess] = useState<"counter" | "accept" | "reject" | null>(null);
   const [actionModal, setActionModal] = useState<{ request: SellRequest; type: SellActionType } | null>(null);
   const [actionSuccess, setActionSuccess] = useState<SellActionType | null>(null);
-
-  function openAction(req: SellRequest, type: SellActionType) {
-    setActionModal({ request: req, type });
-  }
 
   useEffect(() => {
     fetchSellRequests()
@@ -141,48 +261,61 @@ export default function SellRequestsPage() {
   }, [requests, activeTab]);
 
   return (
-    <PortalLayout role="investor">
+    <PortalLayout role={pageRole}>
       <div className="space-y-6">
+
         {/* Header */}
         <div>
-          <h1 className="text-xl font-semibold">Sell Requests</h1>
+          <h1 className="text-xl font-semibold">
+            {pageRole === "ops" ? "Sell Requests — Ops View" : "Sell Requests"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Track and manage your sell orders through the complete lifecycle
+            {pageRole === "ops"
+              ? "Manage all investor sell requests across the full lifecycle"
+              : pageRole === "ifa"
+              ? "Track and manage sell requests for your investors"
+              : "Track and manage your sell orders through the complete lifecycle"}
           </p>
         </div>
 
         {/* Flow pipeline */}
-        <div className="card-elevated p-4 space-y-3">
-          <p className="text-sm font-semibold">Sell Request Flow</p>
-          <p className="text-xs font-semibold">Auto Approved Flow</p>
-          <div className="flex flex-wrap items-center gap-1 tex-muted-foreground">
-            {FLOW_STEPS[0].map((step, i) => (
-              <div key={step.label} className="flex items-center gap-1">
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>
-                  {step.label}
-                </span>
-                {i < FLOW_STEPS[0].length - 1 && (
-                  <span className="text-muted-foreground text-xs">→</span>
-                )}
-              </div>
-            ))}
+        <div className="card-elevated p-4 space-y-4">
+          <p className="text-sm font-semibold">Sell Request Lifecycle</p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Auto Approved Flow</p>
+            <div className="flex flex-wrap items-center gap-1">
+              {AUTO_APPROVED_FLOW.map((step, i) => (
+                <div key={step.label} className="flex items-center gap-1">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>{step.label}</span>
+                  {i < AUTO_APPROVED_FLOW.length - 1 && <span className="text-muted-foreground text-xs">→</span>}
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-xs font-semibold">Negotiation Flow</p>
-          <div className="flex flex-wrap items-center gap-1 tex-muted-foreground">
-            {FLOW_STEPS[1].map((step, i) => (
-              <div key={step.label} className="flex items-center gap-1">
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>
-                  {step.label}
-                </span>
-                {i < FLOW_STEPS[1].length - 1 && (
-                  <span className="text-muted-foreground text-xs">→</span>
-                )}
-              </div>
-            ))}
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Negotiation Flow</p>
+            <div className="flex flex-wrap items-center gap-1">
+              {NEGOTIATION_FLOW.map((step, i) => (
+                <div key={step.label} className="flex items-center gap-1">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${step.color}`}>{step.label}</span>
+                  {i < NEGOTIATION_FLOW.length - 1 && <span className="text-muted-foreground text-xs">→</span>}
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Rejected or Terminated requests can be retried from any stage.
-          </p>
+
+          <div className="flex flex-wrap gap-3 pt-1 border-t border-border text-xs text-muted-foreground">
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />
+              Rejected / Terminated can occur at any active stage
+            </span>
+            <span>
+              <span className="inline-block w-2 h-2 rounded-full bg-sky-400 mr-1" />
+              DIS (Delivery Instruction Slip) required after Seller Approved / Auto Approved
+            </span>
+          </div>
         </div>
 
         {/* Filter tabs */}
@@ -223,7 +356,6 @@ export default function SellRequestsPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Units</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Yield</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Settlement Date</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">DIS</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Actions</th>
                   </tr>
@@ -237,7 +369,6 @@ export default function SellRequestsPage() {
                       <td className="px-4 py-3">{req.units}</td>
                       <td className="px-4 py-3">{req.yield}%</td>
                       <td className="px-4 py-3 whitespace-nowrap">{req.settlementDate}</td>
-                      <td className="px-4 py-3 text-muted-foreground">—</td>
                       <td className="px-4 py-3">
                         <div>
                           <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${statusStyle(req.status)}`}>
@@ -252,12 +383,9 @@ export default function SellRequestsPage() {
                       <td className="px-4 py-3">
                         <StatusActions
                           status={req.status}
+                          role={pageRole}
                           onNegotiate={() => setNegotiateRequest(req)}
-                          onCancel={() => openAction(req, "cancel")}
-                          onReject={() => openAction(req, "reject")}
-                          onApprove={() => openAction(req, "approve")}
-                          onView={() => openAction(req, "view")}
-                          onDIS={() => openAction(req, "dis")}
+                          onAction={(type) => setActionModal({ request: req, type })}
                         />
                       </td>
                     </tr>
@@ -269,6 +397,7 @@ export default function SellRequestsPage() {
         </div>
       </div>
 
+      {/* Negotiate modal */}
       {negotiateRequest && (
         <NegotiateModal
           request={negotiateRequest}
@@ -296,6 +425,7 @@ export default function SellRequestsPage() {
         />
       )}
 
+      {/* Action modal */}
       {actionModal && (
         <SellActionModal
           request={actionModal.request}
@@ -310,18 +440,8 @@ export default function SellRequestsPage() {
 
       {actionSuccess && (
         <SuccessModal
-          title={
-            actionSuccess === "reject"  ? "Proposal Rejected" :
-            actionSuccess === "cancel"  ? "Request Cancelled" :
-            actionSuccess === "approve" ? "Proposal Approved" :
-                                          "DIS Uploaded"
-          }
-          body={
-            actionSuccess === "reject"  ? "The proposal has been rejected successfully." :
-            actionSuccess === "cancel"  ? "Your sell request has been cancelled." :
-            actionSuccess === "approve" ? "The proposal has been approved successfully." :
-                                          "Your DIS copy has been uploaded successfully."
-          }
+          title={successCopy(actionSuccess).title}
+          body={successCopy(actionSuccess).body}
           onClose={() => setActionSuccess(null)}
         />
       )}
